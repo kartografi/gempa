@@ -1,0 +1,264 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title></title>
+    <meta name='robots' content='noindex, nofollow'>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body { margin:0; padding:0; }
+        #map { position:absolute; top:0; bottom:0; width:100%; }
+
+        /* Marker tweaks */
+        .mapboxgl-popup-close-button {
+          display: none;
+        }
+
+        .mapboxgl-popup-content {
+          font: 400 15px/22px 'Overpass Bold', 'Helvetica Neue', Sans-serif;
+          padding: 0;
+          width: 180px;
+        }
+
+        .mapboxgl-popup-content-wrapper {
+          padding: 1%;
+        }
+
+        .mapboxgl-popup-content h3 {
+          background: #91c949;
+          color: #fff;
+          margin: 0;
+          display: block;
+          padding: 10px;
+          border-radius: 3px 3px 0 0;
+          font-weight: 700;
+          margin-top: -15px;
+        }
+
+        .mapboxgl-popup-content h4 {
+          margin: 0;
+          display: block;
+          padding: 20px;
+          font-weight: 400;
+          margin-top: -15px;
+  
+        }
+
+        .mapboxgl-popup-content div {
+          padding: 10px;
+        }
+
+        .mapboxgl-container .leaflet-marker-icon {
+          cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id='map'></div>
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoicHJvcGFwYW5kYSIsImEiOiJjazMwYjlveTEwZTJ3M25vMm4xY2Vlaml1In0.fsXznZV6H7HCVL_aVphA3A';
+
+
+var map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/propapanda/ck32kgg7e2wvl1cpl58fh9gus',
+    center: [120,0],
+    zoom: 3
+
+});
+
+var d = new Date(0)
+
+map.on('load', function() {
+
+
+    window.setInterval(function() { map.getSource('earthquake');}, 6000);
+
+
+    map.addSource('earthquake', {
+      "type": "geojson",
+      "data": "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=0.000000&longitude=120.000000&maxradius=30"
+    });
+
+    map.addLayer({
+        "id": "earthquake-heat",
+        "type": "heatmap",
+        "source": "earthquake",
+        "maxzoom": 9,
+        "paint": {
+            "heatmap-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                0,
+                18,
+                3,
+                18,
+                22,
+                30
+            ],
+            "heatmap-weight": [
+                "interpolate",
+                ["linear"],
+                ["get", "mag"],
+                3.4,
+                0,
+                7.1,
+                1
+            ],
+            "heatmap-intensity": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                0,
+                1,
+                22,
+                10
+            ],
+            "heatmap-color": [
+                "interpolate",
+                ["linear"],
+                ["heatmap-density"],
+                0,
+                "rgba(0, 0, 255, 0)",
+                0.1,
+                "hsl(50, 97%, 82%)",
+                0.3,
+                "#ffb961",
+                0.5,
+                "#f3826f",
+                0.7,
+                "#c05c7e",
+                1,
+                "#2d3561"
+            ],
+
+            "heatmap-opacity": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                7, 1,
+                8, 0
+            ]
+        }
+    });
+
+
+    map.addLayer({
+        "id": "earthquake-point",
+        "type": "circle",
+        "source": "earthquake",
+        "minzoom": 6,
+        "paint": {
+          // increase the radius of the circle as the zoom level and dbh value increases
+            "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                7, [
+                        "interpolate",
+                        ["linear"],
+                        ["get", "mag"],
+                        1, 1,
+                        6, 4
+                ],
+                16, [
+                        "interpolate",
+                        ["linear"],
+                        ["get", "mag"],
+                        1, 10,
+                        10, 100
+                     ]
+            ],
+        
+            "circle-color": [
+                "interpolate",
+                ["linear"],
+                ["get", "mag"],
+                    1, "rgba(33,102,172,0)",
+                    2, "rgb(103,169,207)",
+                    3, "rgb(209,229,240)",
+                    4, "rgb(253,219,199)",
+                    5, "rgb(239,138,98)",
+                    6, "rgb(178,24,43)",
+                    10, "rgb(0,0,0)"
+            ],
+            "circle-stroke-color": "white",
+            "circle-stroke-width": 1,
+            // Transition from heatmap to circle layer by zoom level
+            "circle-opacity": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                7, 0,
+                8, 1
+            ]
+            
+        }
+    }, 'waterway-label');
+
+
+    map.addLayer({
+        "id": "earthquake-point2",
+        "type": "circle",
+        "source": "earthquake",
+        "maxzoom": 9,
+        "paint": {
+          // increase the radius of the circle as the zoom level and dbh value increases
+            "circle-radius": 15,
+            "circle-stroke-color": "white",
+            "circle-stroke-width": 0,
+            // Transition from heatmap to circle layer by zoom level
+            "circle-opacity": 0
+        }
+    }, 'waterway-label');
+
+
+
+    //click on tree to view dbh in a popup
+    map.on('click', 'earthquake-point', function (e) {
+      new mapboxgl.Popup()
+        .setLngLat(e.features[0].geometry.coordinates)
+        .setHTML(
+
+            '<h3>Location:</h3> '+ e.features[0].properties.title
+            +  '<br></br> ' + 
+            '<h3>Magnitude:</h3> ' + e.features[0].properties.mag
+            +  '<br></br> ' + 
+            '<h3>Time</h3> ' + e.features[0].properties.time
+            +  '<br></br> ' 
+            )
+
+        .addTo(map);
+    });
+
+    map.on('click', 'earthquake-point2', function (e) {
+      new mapboxgl.Popup()
+        .setLngLat(e.features[0].geometry.coordinates)
+        .setHTML(
+
+            '<h3>Location:</h3> '+ '<h4>' + e.features[0].properties.title + '</h4>'
+            + 
+            '<h3>Magnitude:</h3> ' + '<h4>' + e.features[0].properties.mag + '</h4>'
+            +  
+            '<h3>Time</h3> ' + '<h4>' + e.features[0].properties.time + '</h4>'
+            
+            )
+
+        .addTo(map);
+    });
+
+});
+
+map.addControl(new mapboxgl.NavigationControl());
+
+
+</script>
+
+</body>
+</html>
