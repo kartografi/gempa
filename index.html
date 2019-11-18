@@ -7,6 +7,8 @@
     <meta name='robots' content='noindex, nofollow'>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js'></script>
+    <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js'></script>
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
     <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css' rel='stylesheet' />
     <style>
         body { margin:0; padding:0; }
@@ -44,7 +46,7 @@
           padding: 20px;
           font-weight: 400;
           margin-top: -15px;
-  
+
         }
 
         .mapboxgl-popup-content div {
@@ -72,18 +74,22 @@ var map = new mapboxgl.Map({
 
 });
 
-var d = new Date(0)
+
+
+var earthquake = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson"
+
 
 map.on('load', function() {
 
 
     window.setInterval(function() { map.getSource('earthquake');}, 6000);
 
-
     map.addSource('earthquake', {
       "type": "geojson",
-      "data": "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=0.000000&longitude=120.000000&maxradius=30"
+      "data": earthquake
     });
+
+
 
     map.addLayer({
         "id": "earthquake-heat",
@@ -175,7 +181,7 @@ map.on('load', function() {
                         10, 100
                      ]
             ],
-        
+
             "circle-color": [
                 "interpolate",
                 ["linear"],
@@ -198,7 +204,7 @@ map.on('load', function() {
                 7, 0,
                 8, 1
             ]
-            
+
         }
     }, 'waterway-label');
 
@@ -227,11 +233,11 @@ map.on('load', function() {
         .setHTML(
 
             '<h3>Location:</h3> '+ e.features[0].properties.title
-            +  '<br></br> ' + 
+            +  '<br></br> ' +
             '<h3>Magnitude:</h3> ' + e.features[0].properties.mag
-            +  '<br></br> ' + 
+            +  '<br></br> ' +
             '<h3>Time</h3> ' + e.features[0].properties.time
-            +  '<br></br> ' 
+            +  '<br></br> '
             )
 
         .addTo(map);
@@ -243,11 +249,11 @@ map.on('load', function() {
         .setHTML(
 
             '<h3>Location:</h3> '+ '<h4>' + e.features[0].properties.title + '</h4>'
-            + 
+            +
             '<h3>Magnitude:</h3> ' + '<h4>' + e.features[0].properties.mag + '</h4>'
-            +  
+            +
             '<h3>Time</h3> ' + '<h4>' + e.features[0].properties.time + '</h4>'
-            
+
             )
 
         .addTo(map);
@@ -257,6 +263,83 @@ map.on('load', function() {
 
 map.addControl(new mapboxgl.NavigationControl());
 
+// add locate and buffer
+let geolocate = new mapboxgl.GeolocateControl({
+    positionOptions: {
+        enableHighAccuracy: true,
+        watchPosition: false
+    }
+});
+
+map.addControl(geolocate);
+
+geolocate.on('geolocate', (e) => {
+
+      //  console.log(e)
+
+        map.flyTo({
+            center:[e.coords.longitude, e.coords.latitude],
+            zoom:5 //set zoom
+          });
+
+        var yourlocation =   { "type": "FeatureCollection",
+              "features": [{
+                  "type": "Feature",
+                  "geometry": {
+                      "type": "Point",
+                      "coordinates": [e.coords.longitude, e.coords.latitude]
+                  }
+              }]
+          }
+
+        map.addLayer({
+            "id": "yourlocation",
+            "type": "circle",
+            "source": {
+                "type": "geojson",
+                "data": yourlocation
+            }
+        });
+
+        var pts = turf.point( [e.coords.longitude, e.coords.latitude]);
+
+      var qq  =  map.addSource('qq', {
+          "type": "geojson",
+          "data": earthquake
+        });
+
+
+       var buffah = turf.buffer(yourlocation, 500, { unit: 'miles' });
+
+      var poly = turf.polygon(buffah.features[0].geometry.coordinates)
+
+      var ptsWithinbuff = turf.within(qq,poly )
+
+      console.log(qq);
+
+        alert('Found ' + ptsWithinbuff.features.length + ' features')
+
+        map.addLayer({
+           "id": "buffer",
+           "type": "fill",
+           "source": {
+               "type": "geojson",
+               "data": buffah
+           },
+           "layout": {
+               // "line-join": "round",
+               // "line-cap": "round"
+           },
+           "paint": {
+               "fill-color": "#4287f5",
+               "fill-opacity": 0.75,
+               "fill-outline-color": "#4287f5"
+           }
+       });
+
+
+
+});
 
 </script>
 
